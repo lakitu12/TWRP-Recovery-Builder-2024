@@ -149,7 +149,10 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean || true
           make ramdisk -j$(nproc --all) || true
-          make ramdisk-recovery -j$(nproc --all) || true
+          # Manually package TWRP recovery ramdisk from built recovery/root/
+          out/host/linux-x86/bin/mkbootfs out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root | out/host/linux-x86/bin/minigzip > out/target/product/${{ github.event.inputs.DEVICE_NAME }}/twrp_ramdisk.gz || true
+          ls -la out/target/product/${{ github.event.inputs.DEVICE_NAME }}/twrp_ramdisk.gz || true
+          cd ${GITHUB_WORKSPACE}/workspace
           make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all) || true
           echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
       - name: Set Build Date
@@ -210,6 +213,7 @@ jobs:
             workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ env.RECOVERY_TYPE }}.tar
             workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery-installer.zip
             workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ env.RECOVERY_TYPE }}.img
+            workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/twrp_ramdisk.gz
           name: Unofficial TWRP for ${{ github.event.inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
           tag_name: ${{ github.run_id }}
           body: |
