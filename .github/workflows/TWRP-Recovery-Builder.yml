@@ -147,7 +147,10 @@ jobs:
           cd workspace
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
-          lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all) || true
+          lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean || true
+          # Create dummy root directory to prevent rsync failure in recovery packaging
+          mkdir -p out/target/product/${{ github.event.inputs.DEVICE_NAME }}/root
+          make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all) || true
           echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
       - name: Set Build Date
         run: |
