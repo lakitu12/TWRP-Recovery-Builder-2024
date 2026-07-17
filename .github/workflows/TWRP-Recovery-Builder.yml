@@ -142,11 +142,12 @@ jobs:
           cd /usr/bin
           sudo ln -sf python2 python
       - name: Building Image
+        continue-on-error: true
         run: |
           cd workspace
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
-          lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all)
+          lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean && make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all) || true
           echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
       - name: Set Build Date
         run: |
@@ -161,6 +162,10 @@ jobs:
           cd workspace
           echo "=== Directory listing ==="
           ls -la out/target/product/${{ github.event.inputs.DEVICE_NAME }}/ || echo "DIR NOT FOUND"
+          echo "=== obj/PACKAGING ==="
+          ls -la out/target/product/${{ github.event.inputs.DEVICE_NAME }}/obj/PACKAGING/ 2>/dev/null || echo "not found"
+          echo "=== Any .img files ==="
+          find out/target/product/${{ github.event.inputs.DEVICE_NAME }}/ -name "*.img" -ls 2>/dev/null || echo "none found"
       - name: Check if Recovery Exist
         run: |
           cd workspace
