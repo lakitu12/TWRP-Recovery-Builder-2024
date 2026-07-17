@@ -175,7 +175,11 @@ jobs:
       - name: Check if Recovery Exist
         run: |
           cd workspace
-          if [ -f out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.img ]; then
+          if [ -f out/target/product/${{ github.event.inputs.DEVICE_NAME }}/twrp_ramdisk.gz ]; then
+            echo "RECOVERY_TYPE=ramdisk" >> $GITHUB_ENV
+            echo "twrp_ramdisk.gz file found!"
+            echo "MD5_IMG=$(md5sum out/target/product/${{ github.event.inputs.DEVICE_NAME }}/twrp_ramdisk.gz | cut -d ' ' -f 1)" >> $GITHUB_ENV
+          elif [ -f out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.img ]; then
             echo "RECOVERY_TYPE=recovery" >> $GITHUB_ENV
             echo "recovery.img file found!"
             echo "MD5_IMG=$(md5sum out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery.img | cut -d ' ' -f 1)" >> $GITHUB_ENV
