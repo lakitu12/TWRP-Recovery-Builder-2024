@@ -149,6 +149,7 @@ jobs:
           export ALLOW_MISSING_DEPENDENCIES=true
           lunch ${{ env.DEVICE_MAKEFILE }}-eng && make clean || true
           make ramdisk -j$(nproc --all) || true
+          make ramdisk-recovery -j$(nproc --all) || true
           make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all) || true
           echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
       - name: Set Build Date
