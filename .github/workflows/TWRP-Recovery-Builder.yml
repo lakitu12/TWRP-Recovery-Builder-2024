@@ -149,7 +149,7 @@ jobs:
           cd workspace
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
-          lunch ${{ env.DEVICE_MAKEFILE }} && make clean || true
+          lunch ${{ env.DEVICE_MAKEFILE }}
           # First build recoveryimage to populate recovery/root/
           make ${{ github.event.inputs.BUILD_TARGET }}image -j$(nproc --all) || true
           echo "Done building your ${{ github.event.inputs.BUILD_TARGET }}.img"
