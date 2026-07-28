@@ -184,7 +184,7 @@ jobs:
       - name: Determine Build Variant
         run: |
           case "${{ github.event.inputs.MANIFEST_BRANCH }}" in
-            twrp-16.0) echo "BUILD_VARIANT=trunk_staging" >> $GITHUB_ENV ;;
+            twrp-16.0) echo "BUILD_VARIANT=bp2a" >> $GITHUB_ENV ;;
             twrp-14.1) echo "BUILD_VARIANT=ap4a" >> $GITHUB_ENV ;;
             twrp-12.1) echo "BUILD_VARIANT=sp2a" >> $GITHUB_ENV ;;
             twrp-11)   echo "BUILD_VARIANT=rp1a" >> $GITHUB_ENV ;;
@@ -202,7 +202,6 @@ jobs:
           sudo ln -sf python2 python
 
       - name: Building Image
-        continue-on-error: true
         run: |
           cd workspace
           source build/envsetup.sh
@@ -233,6 +232,9 @@ jobs:
           find "out/target/product/${{ github.event.inputs.DEVICE_NAME }}/" -maxdepth 1 -name "*.img" -ls 2>/dev/null || echo "No .img files found"
           echo "=== recovery/root/ ==="
           ls -la "out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root/" 2>/dev/null | head -20 || echo "recovery/root not found"
+          if [ -n "$MAKE_EXIT" ] && [ "$MAKE_EXIT" -ne 0 ]; then
+            exit $MAKE_EXIT
+          fi
 
       - name: Set Build Date
         run: |
