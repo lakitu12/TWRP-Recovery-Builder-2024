@@ -164,6 +164,21 @@ jobs:
             find . -path "*/magisk-prebuilt*" -name "Android.mk" -exec grep -l 'magiskboot' {} \; 2>/dev/null || true
           fi
 
+      - name: Fix recovery vendor directory rsync conflict
+        run: |
+          cd workspace
+          # TWRP relink.sh creates recovery/root/vendor/bin/hw as a real directory,
+          # but root/vendor is a symlink. The rsync from root/ to recovery/root/
+          # fails when it can't replace the directory with the symlink.
+          # Exclude vendor from the rsync so the real directory survives.
+          MKFILE="build/make/core/Makefile"
+          if grep -q 'rsync.*--exclude=/root/vendor' "$MKFILE"; then
+            echo "✓ Already patched"
+          else
+            sed -i 's|rsync -a --exclude=sdcard|rsync -a --exclude=sdcard --exclude=/root/vendor|' "$MKFILE"
+            echo "✓ Patched Makefile: excluded /root/vendor from recovery rsync"
+          fi
+
       - name: Clone Device Tree (if not via local_manifest)
         run: |
           cd workspace
