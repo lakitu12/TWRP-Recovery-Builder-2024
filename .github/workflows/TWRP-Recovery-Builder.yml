@@ -126,12 +126,6 @@ jobs:
           git config --global user.email "builder@twrp.local"
           repo init --depth=1 -u ${{ steps.manifest.outputs.value }} -b ${{ github.event.inputs.MANIFEST_BRANCH }}
 
-      - name: Set USTC AOSP Mirror
-        run: |
-          cd workspace
-          sed -i 's#fetch="https://android.googlesource.com"#fetch="https://mirrors.ustc.edu.cn/aosp"#' .repo/manifests/default.xml
-          echo "Switched aosp remote to USTC mirror"
-
       - name: Apply Device local_manifest
         run: |
           # Extract owner/repo from DEVICE_TREE URL to construct raw URL
@@ -154,6 +148,19 @@ jobs:
         run: |
           cd workspace
           repo sync -j4 --force-sync
+
+      - name: Fix magiskboot ELF check for 16K page size
+        run: |
+          cd workspace
+          MK="external/magisk-prebuilt/prebuilt/Android.mk"
+          if [ -f "$MK" ]; then
+            grep -q 'LOCAL_CHECK_ELF_FILES' "$MK" || \
+              sed -i '/^[[:space:]]*LOCAL_MODULE := magiskboot$/a\    LOCAL_CHECK_ELF_FILES := false' "$MK"
+            echo "✓ Patched magiskboot: check_elf_files disabled"
+          else
+            echo "⚠ magisk-prebuilt not found under external/"
+            find . -path "*/magisk-prebuilt*" -name "Android.mk" 2>/dev/null || true
+          fi
 
       - name: Clone Device Tree (if not via local_manifest)
         run: |
