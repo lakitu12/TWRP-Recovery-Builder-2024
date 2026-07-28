@@ -147,19 +147,19 @@ jobs:
       - name: Repo Sync
         run: |
           cd workspace
-          repo sync -j4 --force-sync
+          repo sync -j8 --force-sync
 
       - name: Fix magiskboot ELF check for 16K page size
         run: |
           cd workspace
-          MK="external/magisk-prebuilt/prebuilt/Android.mk"
+          MK="external/magisk-prebuilt/Android.mk"
           if [ -f "$MK" ]; then
-            grep -q 'LOCAL_CHECK_ELF_FILES' "$MK" || \
-              sed -i '/^[[:space:]]*LOCAL_MODULE := magiskboot$/a\    LOCAL_CHECK_ELF_FILES := false' "$MK"
-            echo "✓ Patched magiskboot: check_elf_files disabled"
+            grep -q 'LOCAL_IGNORE_MAX_PAGE_SIZE' "$MK" ||
+              sed -i '/LOCAL_MODULE := magiskboot$/a\    LOCAL_IGNORE_MAX_PAGE_SIZE := true' "$MK"
+            echo "✓ Patched magiskboot: ignore_max_page_size set"
           else
-            echo "⚠ magisk-prebuilt not found under external/"
-            find . -path "*/magisk-prebuilt*" -name "Android.mk" 2>/dev/null || true
+            echo "⚠ magisk-prebuilt not found"
+            find . -name "Android.mk" -path "*/magisk-prebuilt*" 2>/dev/null || true
           fi
 
       - name: Clone Device Tree (if not via local_manifest)
