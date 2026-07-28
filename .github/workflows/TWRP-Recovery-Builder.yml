@@ -152,14 +152,16 @@ jobs:
       - name: Fix magiskboot ELF check for 16K page size
         run: |
           cd workspace
-          MK="external/magisk-prebuilt/Android.mk"
-          if [ -f "$MK" ]; then
+          # Find the actual Android.mk that contains the magiskboot module
+          MK=$(grep -rl 'LOCAL_MODULE_STEM := magiskboot' external/magisk-prebuilt/ 2>/dev/null | head -1)
+          if [ -n "$MK" ]; then
+            echo "Found magiskboot module in: $MK"
             grep -q 'LOCAL_IGNORE_MAX_PAGE_SIZE' "$MK" ||
-              sed -i '/LOCAL_MODULE := magiskboot$/a\    LOCAL_IGNORE_MAX_PAGE_SIZE := true' "$MK"
-            echo "✓ Patched magiskboot: ignore_max_page_size set"
+              sed -i '/LOCAL_MODULE_STEM := magiskboot$/a\    LOCAL_IGNORE_MAX_PAGE_SIZE := true' "$MK"
+            echo "✓ Patched: ignore_max_page_size set"
           else
-            echo "⚠ magisk-prebuilt not found"
-            find . -name "Android.mk" -path "*/magisk-prebuilt*" 2>/dev/null || true
+            echo "⚠ Could not find magiskboot module definition"
+            find . -path "*/magisk-prebuilt*" -name "Android.mk" -exec grep -l 'magiskboot' {} \; 2>/dev/null || true
           fi
 
       - name: Clone Device Tree (if not via local_manifest)
