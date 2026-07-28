@@ -213,11 +213,19 @@ jobs:
           case "$BUILD_TARGET" in
             vendorboot)
               echo "Building vendorbootimage..."
-              make vendorbootimage -j$(nproc --all) || true
+              set +e
+              make vendorbootimage -j$(nproc --all)
+              MAKE_EXIT=$?
+              set -e
+              echo "=== make exit code: $MAKE_EXIT ==="
               ;;
             boot|recovery)
               echo "Building ${BUILD_TARGET}image..."
-              make ${BUILD_TARGET}image -j$(nproc --all) || true
+              set +e
+              make ${BUILD_TARGET}image -j$(nproc --all)
+              MAKE_EXIT=$?
+              set -e
+              echo "=== make exit code: $MAKE_EXIT ==="
               ;;
           esac
           echo "Done building."
@@ -287,7 +295,6 @@ jobs:
           fi
 
       - name: Upload to Release
-        if: env.RELEASE_ASSET_NAME != ''
         uses: softprops/action-gh-release@v1
         with:
           files: |
