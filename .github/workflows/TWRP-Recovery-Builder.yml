@@ -17,7 +17,7 @@ on:
       DEVICE_TREE:
         description: 'Device Tree URL'
         required: true
-        default: 'https://github.com/YorokobiMaster/device_xiaomi_dash_twrp'
+        default: 'https://github.com/lakitu12/device_xiaomi_dash_twrp'
       DEVICE_TREE_BRANCH:
         description: 'Device Tree Branch'
         required: true
