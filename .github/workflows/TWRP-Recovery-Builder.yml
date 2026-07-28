@@ -184,7 +184,7 @@ jobs:
       - name: Determine Build Variant
         run: |
           case "${{ github.event.inputs.MANIFEST_BRANCH }}" in
-            twrp-16.0) echo "BUILD_VARIANT=bp2a" >> $GITHUB_ENV ;;
+            twrp-16.0) echo "BUILD_VARIANT=trunk_staging" >> $GITHUB_ENV ;;
             twrp-14.1) echo "BUILD_VARIANT=ap4a" >> $GITHUB_ENV ;;
             twrp-12.1) echo "BUILD_VARIANT=sp2a" >> $GITHUB_ENV ;;
             twrp-11)   echo "BUILD_VARIANT=rp1a" >> $GITHUB_ENV ;;
