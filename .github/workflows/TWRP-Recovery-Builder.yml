@@ -53,6 +53,15 @@ on:
         type: boolean
         required: true
         default: false
+      GENERATE_FINAL:
+        description: '生成最终刷机镜像（需填原厂 vendor_boot URL）'
+        type: boolean
+        required: false
+        default: false
+      STOCK_VENDOR_BOOT_URL:
+        description: '原厂 vendor_boot.img 下载 URL（GENERATE_FINAL=true 时必需）'
+        required: false
+        default: ''
 
 jobs:
   build:
@@ -320,11 +329,39 @@ jobs:
             fi
           fi
 
+      - name: Repack Final Image
+        if: inputs.GENERATE_FINAL == 'true' && inputs.STOCK_VENDOR_BOOT_URL != ''
+        run: |
+          echo "::group::Repack Final Image"
+          CI_IMG="workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/vendor_boot.img"
+          if [ ! -f "$CI_IMG" ]; then
+            echo "ERROR: CI vendor_boot.img not found at $CI_IMG"
+            exit 1
+          fi
+          echo "Downloading stock vendor_boot..."
+          curl -sfL "${{ inputs.STOCK_VENDOR_BOOT_URL }}" -o /tmp/stock_vendor_boot.img
+          if [ ! -f /tmp/stock_vendor_boot.img ]; then
+            echo "ERROR: Failed to download stock vendor_boot"
+            exit 1
+          fi
+          echo "Cloning device tree for repack script..."
+          git clone --depth 1 --branch ${{ inputs.DEVICE_TREE_BRANCH }} \
+            ${{ inputs.DEVICE_TREE }} /tmp/device_tree
+          echo "Running repack_vendor_boot.py..."
+          python3 /tmp/device_tree/tools/repack_vendor_boot.py \
+            --stock /tmp/stock_vendor_boot.img \
+            --ci "$CI_IMG" \
+            --output /tmp/repacked_vendor_boot.img
+          echo "REPACKED_ASSET=/tmp/repacked_vendor_boot.img" >> $GITHUB_ENV
+          echo "REPACKED_ASSET_NAME=dash-vendor_boot-final.img" >> $GITHUB_ENV
+          echo "::endgroup::"
+
       - name: Upload to Release
         uses: softprops/action-gh-release@v1
         with:
           files: |
             workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ env.RELEASE_ASSET_NAME }}
+            ${{ env.REPACKED_ASSET || '' }}
           name: Unofficial TWRP for ${{ github.event.inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
           tag_name: ${{ github.run_id }}
           body: |
