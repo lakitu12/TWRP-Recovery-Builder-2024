@@ -62,10 +62,6 @@ on:
         description: '原厂 vendor_boot.img 下载 URL（GENERATE_FINAL=true 时必需）'
         required: false
         default: ''
-      REF_VENDOR_BOOT_URL:
-        description: '参考镜像 URL（如 lakitu-1，可选，提供后 F1 白名单裁剪更准确）'
-        required: false
-        default: ''
 
 jobs:
   build:
@@ -352,18 +348,9 @@ jobs:
           git clone --depth 1 --branch ${{ inputs.DEVICE_TREE_BRANCH }} \
             ${{ inputs.DEVICE_TREE }} /tmp/device_tree
           echo "Running repack_vendor_boot.py..."
-          REF_ARGS=""
-          if [ -n "${{ inputs.REF_VENDOR_BOOT_URL }}" ]; then
-            echo "Downloading reference vendor_boot for whitelist..."
-            curl -sfL "${{ inputs.REF_VENDOR_BOOT_URL }}" -o /tmp/ref_vendor_boot.img
-            if [ -f /tmp/ref_vendor_boot.img ]; then
-              REF_ARGS="--ref /tmp/ref_vendor_boot.img"
-            fi
-          fi
           python3 /tmp/device_tree/tools/repack_vendor_boot.py \
             --stock /tmp/stock_vendor_boot.img \
             --ci "$CI_IMG" \
-            $REF_ARGS \
             --output /tmp/repacked_vendor_boot.img
           echo "REPACKED_ASSET=/tmp/repacked_vendor_boot.img" >> $GITHUB_ENV
           echo "REPACKED_ASSET_NAME=dash-vendor_boot-final.img" >> $GITHUB_ENV
