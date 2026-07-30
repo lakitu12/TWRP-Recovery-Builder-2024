@@ -61,7 +61,7 @@ on:
       STOCK_VENDOR_BOOT_URL:
         description: '原厂 vendor_boot.img 下载 URL（GENERATE_FINAL=true 时必需）'
         required: false
-        default: ''
+        default: 'https://github.com/lakitu12/device_xiaomi_dash_twrp/releases/download/stock-vendor_boot/vendor_boot.img'
 
 jobs:
   build:
