@@ -239,7 +239,7 @@ jobs:
           cd workspace
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
-          lunch ${{ env.DEVICE_MAKEFILE }}-${{ env.BUILD_VARIANT }}-eng
+          lunch ${{ env.DEVICE_MAKEFILE }}-${{ env.BUILD_VARIANT }}-user
 
           BUILD_TARGET="${{ github.event.inputs.BUILD_TARGET }}"
           case "$BUILD_TARGET" in
