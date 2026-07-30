@@ -54,7 +54,7 @@ on:
         required: true
         default: false
       GENERATE_FINAL:
-        description: '生成最终刷机镜像（需填原厂 vendor_boot URL）'
+        description: '生成最终刷机镜像（需填原厂 vendor_boot + validated URL）'
         type: boolean
         required: false
         default: false
@@ -62,6 +62,14 @@ on:
         description: '原厂 vendor_boot.img 下载 URL（GENERATE_FINAL=true 时必需）'
         required: false
         default: 'https://github.com/lakitu12/device_xiaomi_dash_twrp/releases/download/stock-vendor_boot/vendor_boot.img'
+      STOCK_VBMETA_URL:
+        description: '原厂 vbmeta.img 下载 URL（GENERATE_FINAL=true 时必需）'
+        required: false
+        default: 'https://github.com/lakitu12/device_xiaomi_dash_twrp/releases/download/stock-vendor_boot/vbmeta.img'
+      VALIDATED_VENDOR_BOOT_URL:
+        description: '已验证可工作的 vendor_boot.img URL（GENERATE_FINAL=true 时必需，首次用 lakitu-1）'
+        required: false
+        default: 'https://github.com/lakitu12/TWRP-Recovery-Builder-2024/releases/download/validated/vendor_boot-dash-OS3.0.305.WPLCNXM-lakitu-1.img'
 
 jobs:
   build:
@@ -70,6 +78,7 @@ jobs:
     if: github.event.repository.owner.id == github.event.sender.id
     permissions:
       contents: write
+
     steps:
       - name: Check Out
         uses: actions/checkout@v3
@@ -78,11 +87,12 @@ jobs:
         run: |
           echo "::group::Build Configuration"
           echo "Manifest Branch: ${{ github.event.inputs.MANIFEST_BRANCH }}"
-          echo "Device Tree:     ${{ github.event.inputs.DEVICE_TREE }}"
-          echo "Device Branch:   ${{ github.event.inputs.DEVICE_TREE_BRANCH }}"
-          echo "Device Path:     ${{ github.event.inputs.DEVICE_PATH }}"
-          echo "Device Name:     ${{ github.event.inputs.DEVICE_NAME }}"
-          echo "Build Target:    ${{ github.event.inputs.BUILD_TARGET }}"
+          echo "Device Tree: ${{ github.event.inputs.DEVICE_TREE }}"
+          echo "Device Branch: ${{ github.event.inputs.DEVICE_TREE_BRANCH }}"
+          echo "Device Path: ${{ github.event.inputs.DEVICE_PATH }}"
+          echo "Device Name: ${{ github.event.inputs.DEVICE_NAME }}"
+          echo "Build Target: ${{ github.event.inputs.BUILD_TARGET }}"
+          echo "Generate Final: ${{ github.event.inputs.GENERATE_FINAL }}"
           echo "::endgroup::"
 
       - name: Cleanup
@@ -161,12 +171,11 @@ jobs:
       - name: Fix magiskboot ELF check for 16K page size
         run: |
           cd workspace
-          # Find the actual Android.mk that contains the magiskboot module
           MK=$(grep -rl 'LOCAL_MODULE_STEM := magiskboot' external/magisk-prebuilt/ 2>/dev/null | head -1)
           if [ -n "$MK" ]; then
             echo "Found magiskboot module in: $MK"
-            grep -q 'LOCAL_IGNORE_MAX_PAGE_SIZE' "$MK" ||
-              sed -i '/LOCAL_MODULE_STEM := magiskboot$/a\    LOCAL_IGNORE_MAX_PAGE_SIZE := true' "$MK"
+            grep -q 'LOCAL_IGNORE_MAX_PAGE_SIZE' "$MK" || sed -i '/LOCAL_MODULE_STEM := magiskboot$/a\
+            LOCAL_IGNORE_MAX_PAGE_SIZE := true' "$MK"
             echo "✓ Patched: ignore_max_page_size set"
           else
             echo "⚠ Could not find magiskboot module definition"
@@ -176,10 +185,6 @@ jobs:
       - name: Fix recovery vendor directory rsync conflict
         run: |
           cd workspace
-          # TWRP relink.sh creates recovery/root/vendor/bin/hw as a real directory,
-          # but root/vendor is a symlink. The rsync from root/ to recovery/root/
-          # fails when it can't replace the directory with the symlink.
-          # Exclude vendor from the rsync so the real directory survives.
           MKFILE="build/make/core/Makefile"
           if grep -q 'rsync.*--exclude=/root/vendor' "$MKFILE"; then
             echo "✓ Already patched"
@@ -220,9 +225,9 @@ jobs:
             twrp-16.0) echo "BUILD_VARIANT=bp2a" >> $GITHUB_ENV ;;
             twrp-14.1) echo "BUILD_VARIANT=ap4a" >> $GITHUB_ENV ;;
             twrp-12.1) echo "BUILD_VARIANT=sp2a" >> $GITHUB_ENV ;;
-            twrp-11)   echo "BUILD_VARIANT=rp1a" >> $GITHUB_ENV ;;
-            twrp-9.0)  echo "BUILD_VARIANT=pi" >> $GITHUB_ENV ;;
-            *)         echo "BUILD_VARIANT=eng" >> $GITHUB_ENV ;;
+            twrp-11) echo "BUILD_VARIANT=rp1a" >> $GITHUB_ENV ;;
+            twrp-9.0) echo "BUILD_VARIANT=pi" >> $GITHUB_ENV ;;
+            *) echo "BUILD_VARIANT=eng" >> $GITHUB_ENV ;;
           esac
           echo "Build variant: ${{ env.BUILD_VARIANT }}"
 
@@ -240,7 +245,6 @@ jobs:
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
           lunch ${{ env.DEVICE_MAKEFILE }}-${{ env.BUILD_VARIANT }}-user
-
           BUILD_TARGET="${{ github.event.inputs.BUILD_TARGET }}"
           case "$BUILD_TARGET" in
             vendorboot)
@@ -286,7 +290,6 @@ jobs:
           ls -la "out/target/product/${{ github.event.inputs.DEVICE_NAME }}/" 2>/dev/null || echo "PRODUCT_OUT dir not found"
           PRODUCT_OUT="out/target/product/${{ github.event.inputs.DEVICE_NAME }}"
           BUILD_TARGET="${{ github.event.inputs.BUILD_TARGET }}"
-
           case "$BUILD_TARGET" in
             vendorboot)
               ASSET="$PRODUCT_OUT/vendor_boot.img"
@@ -306,7 +309,6 @@ jobs:
               ASSET_NAME=""
               ;;
           esac
-
           if [ -n "$ASSET" ] && [ -f "$ASSET" ]; then
             echo "RELEASE_ASSET=$ASSET" >> $GITHUB_ENV
             echo "RELEASE_ASSET_NAME=$ASSET_NAME" >> $GITHUB_ENV
@@ -314,7 +316,6 @@ jobs:
             echo "✓ Asset: $ASSET ($(du -h "$ASSET" | cut -f1))"
           else
             echo "WARNING: Expected asset not found: $ASSET"
-            # Fallback: find any .img
             FALLBACK=$(find "$PRODUCT_OUT" -maxdepth 1 -name "*.img" -type f 2>/dev/null | head -1)
             if [ -n "$FALLBACK" ]; then
               echo "RELEASE_ASSET=$FALLBACK" >> $GITHUB_ENV
@@ -338,22 +339,68 @@ jobs:
             echo "ERROR: CI vendor_boot.img not found at $CI_IMG"
             exit 1
           fi
+
+          STAGING="workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root"
+
           echo "Downloading stock vendor_boot..."
           curl -sfL "${{ github.event.inputs.STOCK_VENDOR_BOOT_URL }}" -o /tmp/stock_vendor_boot.img
           if [ ! -f /tmp/stock_vendor_boot.img ]; then
             echo "ERROR: Failed to download stock vendor_boot"
             exit 1
           fi
-          echo "Cloning device tree for repack script..."
-          git clone --depth 1 --branch ${{ inputs.DEVICE_TREE_BRANCH }} \
-            ${{ inputs.DEVICE_TREE }} /tmp/device_tree
-          echo "Running repack_vendor_boot.py..."
-          python3 /tmp/device_tree/tools/repack_vendor_boot.py \
+
+          echo "Downloading stock vbmeta..."
+          curl -sfL "${{ github.event.inputs.STOCK_VBMETA_URL }}" -o /tmp/stock_vbmeta.img
+          if [ ! -f /tmp/stock_vbmeta.img ]; then
+            echo "ERROR: Failed to download stock vbmeta"
+            exit 1
+          fi
+
+          echo "Downloading validated vendor_boot..."
+          curl -sfL "${{ github.event.inputs.VALIDATED_VENDOR_BOOT_URL }}" -o /tmp/validated_vendor_boot.img
+          if [ ! -f /tmp/validated_vendor_boot.img ]; then
+            echo "ERROR: Failed to download validated vendor_boot"
+            exit 1
+          fi
+
+          echo "Preparing F0+F1 fragments..."
+          cd workspace
+          python3 ${{ github.event.inputs.DEVICE_PATH }}/tools/prepare_fragments.py \
             --stock /tmp/stock_vendor_boot.img \
             --ci "$CI_IMG" \
-            --output /tmp/repacked_vendor_boot.img
+            --validated /tmp/validated_vendor_boot.img \
+            --staging "$STAGING" \
+            --dtroot ${{ github.event.inputs.DEVICE_PATH }} \
+            --prefix /tmp/fragments
+
+          echo "Running stock_aware_repack_tool..."
+          AVBTOOL="out/host/linux-x86/bin/avbtool"
+          if [ ! -f "$AVBTOOL" ]; then
+            AVBTOOL=$(which avbtool 2>/dev/null || echo "")
+            if [ -z "$AVBTOOL" ]; then
+              echo "ERROR: avbtool not found"
+              exit 1
+            fi
+          fi
+          export PATH="$(dirname "$AVBTOOL"):$PATH"
+
+          repack/stock_aware_repack_tool \
+            --template /tmp/stock_vendor_boot.img \
+            --vbmeta-owner /tmp/stock_vbmeta.img \
+            --replacement-manifest /tmp/fragments.manifest.json \
+            --output /tmp/repacked_vendor_boot.img \
+            --report /tmp/repack-report.json \
+            --budget-output /tmp/size-budget.json
+
+          echo "=== Repack Report ==="
+          cat /tmp/repack-report.json | python3 -m json.tool | head -30
+          echo "=== Size Budget ==="
+          cat /tmp/size-budget.json | python3 -m json.tool | head -20
+
           echo "REPACKED_ASSET=/tmp/repacked_vendor_boot.img" >> $GITHUB_ENV
-          echo "REPACKED_ASSET_NAME=dash-vendor_boot-final.img" >> $GITHUB_ENV
+          echo "REPACKED_ASSET_NAME=vendor_boot-dash-final.img" >> $GITHUB_ENV
+          echo "REPACK_REPORT=/tmp/repack-report.json" >> $GITHUB_ENV
+          echo "SIZE_BUDGET=/tmp/size-budget.json" >> $GITHUB_ENV
           echo "::endgroup::"
 
       - name: Upload to Release
@@ -362,6 +409,8 @@ jobs:
           files: |
             workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/${{ env.RELEASE_ASSET_NAME }}
             ${{ env.REPACKED_ASSET || '' }}
+            ${{ env.REPACK_REPORT || '' }}
+            ${{ env.SIZE_BUDGET || '' }}
           name: Unofficial TWRP for ${{ github.event.inputs.DEVICE_NAME }} // ${{ env.BUILD_DATE }}
           tag_name: ${{ github.run_id }}
           body: |
