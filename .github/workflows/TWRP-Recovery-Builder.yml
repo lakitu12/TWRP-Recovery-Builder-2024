@@ -244,7 +244,7 @@ jobs:
           cd workspace
           source build/envsetup.sh
           export ALLOW_MISSING_DEPENDENCIES=true
-          lunch ${{ env.DEVICE_MAKEFILE }}-${{ env.BUILD_VARIANT }}-user
+          lunch ${{ env.DEVICE_MAKEFILE }}-${{ env.BUILD_VARIANT }}-userdebug
           BUILD_TARGET="${{ github.event.inputs.BUILD_TARGET }}"
           case "$BUILD_TARGET" in
             vendorboot)
