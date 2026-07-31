@@ -334,13 +334,6 @@ jobs:
         if: github.event.inputs.GENERATE_FINAL == 'true' && github.event.inputs.STOCK_VENDOR_BOOT_URL != ''
         run: |
           echo "::group::Repack Final Image"
-          CI_IMG="workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/vendor_boot.img"
-          if [ ! -f "$CI_IMG" ]; then
-            echo "ERROR: CI vendor_boot.img not found at $CI_IMG"
-            exit 1
-          fi
-
-          STAGING="workspace/out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root"
 
           echo "Downloading stock vendor_boot..."
           curl -sfL "${{ github.event.inputs.STOCK_VENDOR_BOOT_URL }}" -o /tmp/stock_vendor_boot.img
@@ -363,8 +356,16 @@ jobs:
             exit 1
           fi
 
-          echo "Preparing F0+F1 fragments..."
           cd workspace
+          CI_IMG="out/target/product/${{ github.event.inputs.DEVICE_NAME }}/vendor_boot.img"
+          if [ ! -f "$CI_IMG" ]; then
+            echo "ERROR: CI vendor_boot.img not found at $CI_IMG"
+            exit 1
+          fi
+
+          STAGING="out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root"
+
+          echo "Preparing F0+F1 fragments..."
           python3 ${{ github.event.inputs.DEVICE_PATH }}/tools/prepare_fragments.py \
             --stock /tmp/stock_vendor_boot.img \
             --ci "$CI_IMG" \
