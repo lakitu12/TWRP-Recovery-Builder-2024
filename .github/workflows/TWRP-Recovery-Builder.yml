@@ -53,6 +53,11 @@ on:
         type: boolean
         required: true
         default: false
+      ROOT_ADBD:
+        description: 'Patch recovery fragment for root adbd (ro.secure=0, ro.debuggable=1)'
+        type: boolean
+        required: true
+        default: false
       GENERATE_FINAL:
         description: '生成最终刷机镜像（需填原厂 vendor_boot + validated URL）'
         type: boolean
@@ -248,9 +253,9 @@ jobs:
           BUILD_TARGET="${{ github.event.inputs.BUILD_TARGET }}"
           case "$BUILD_TARGET" in
             vendorboot)
-              echo "Building vendorbootimage..."
+              echo "Building recovery vendorbootimage..."
               set +e
-              make vendorbootimage -j$(nproc --all)
+              make recovery vendorbootimage -j$(nproc --all)
               MAKE_EXIT=$?
               set -e
               echo "=== make exit code: $MAKE_EXIT ==="
@@ -271,6 +276,30 @@ jobs:
           ls -la "out/target/product/${{ github.event.inputs.DEVICE_NAME }}/recovery/root/" 2>/dev/null | head -20 || echo "recovery/root not found"
           if [ -n "$MAKE_EXIT" ] && [ "$MAKE_EXIT" -ne 0 ]; then
             exit $MAKE_EXIT
+          fi
+
+      - name: Verify FSTAB in Staging
+        run: |
+          cd workspace
+          DEVICE_PATH="${{ github.event.inputs.DEVICE_PATH }}"
+          DEVICE_NAME="${{ github.event.inputs.DEVICE_NAME }}"
+          STAGING_FSTAB="out/target/product/${DEVICE_NAME}/recovery/root/system/etc/recovery.fstab"
+          SOURCE_FSTAB="${DEVICE_PATH}/recovery.fstab"
+          if [ -f "$SOURCE_FSTAB" ] && [ -f "$STAGING_FSTAB" ]; then
+            if cmp -s "$SOURCE_FSTAB" "$STAGING_FSTAB"; then
+              echo "✓ FSTAB verified: staging matches source"
+            else
+              echo "✗ FSTAB MISMATCH!"
+              echo "--- Source ---"
+              cat "$SOURCE_FSTAB"
+              echo "--- Staging ---"
+              cat "$STAGING_FSTAB"
+              exit 1
+            fi
+          else
+            echo "⚠ FSTAB files not found for comparison"
+            ls -la "$SOURCE_FSTAB" "$STAGING_FSTAB" 2>/dev/null || true
+            exit 1
           fi
 
       - name: Set Build Date
@@ -373,6 +402,18 @@ jobs:
             --staging "$STAGING" \
             --dtroot ${{ github.event.inputs.DEVICE_PATH }} \
             --prefix /tmp/fragments
+
+          # Optional: patch recovery fragment for root adbd
+          if [ "${{ github.event.inputs.ROOT_ADBD }}" = "true" ]; then
+            echo "Patching recovery fragment for root adbd..."
+            python3 ${{ github.event.inputs.DEVICE_PATH }}/tools/patch_recovery_adbd_props.py \
+              --input-fragment /tmp/fragments.f1.lz4 \
+              --output-fragment /tmp/fragments.f1.root_adbd.lz4 \
+              --report /tmp/root-adbd-patch-report.json
+            # Update manifest to use patched fragment
+            sed -i 's|/tmp/fragments.f1.lz4|/tmp/fragments.f1.root_adbd.lz4|' /tmp/fragments.manifest.json
+            echo "✓ Root adbd patch applied"
+          fi
 
           echo "Running stock_aware_repack_tool..."
           AVBTOOL="out/host/linux-x86/bin/avbtool"
