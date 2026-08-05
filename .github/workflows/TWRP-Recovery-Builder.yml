@@ -198,6 +198,23 @@ jobs:
             echo "✓ Patched Makefile: excluded /root/vendor from recovery rsync"
           fi
 
+      - name: Apply lakitu12 custom commits on official recovery
+        run: |
+          cd workspace/bootable/recovery
+          echo "HEAD before: $(git log --oneline -1)"
+          # 用户自己的更改: twrpTar 归档限制 (67afaef) + sqlite keystore wrapper (196d21a)
+          git fetch https://github.com/lakitu12/android_bootable_recovery.git twrp-16.0:refs/remotes/lakitu12/twrp16
+          for C in 67afaef4b5e316f90bee2be86b9345fb21dd0abd 196d21a3218f799e48764bd7e47db20d77ff2fd0; do
+            if git cherry-pick -n "$C" 2>/tmp/cp.err; then
+              echo "✓ applied $C"
+            else
+              echo "⚠ cherry-pick $C skipped: $(tail -2 /tmp/cp.err)"
+              git cherry-pick --abort 2>/dev/null || git reset --hard HEAD
+            fi
+          done
+          git log --oneline -4
+          cd ../..
+
       - name: Clone Device Tree (if not via local_manifest)
         run: |
           cd workspace
